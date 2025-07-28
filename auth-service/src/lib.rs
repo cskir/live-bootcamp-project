@@ -27,10 +27,6 @@ pub struct Application {
 
 impl Application {
     pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
-        // Move the Router definition from `main.rs` to here.
-        // Also, remove the `hello` route.
-        // We don't need it at this point!
-
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
             // TODO: Add all other routes

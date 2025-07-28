@@ -1,22 +1,15 @@
 use std::collections::HashMap;
 
-use crate::domain::User;
+use crate::domain::{User, UserStore, UserStoreError};
 
-#[derive(Debug, PartialEq)]
-pub enum UserStoreError {
-    UserAlreadyExists,
-    UserNotFound,
-    InvalidCredentials,
-    UnexpectedError,
-}
-
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct HashmapUserStore {
     users: HashMap<String, User>,
 }
 
-impl HashmapUserStore {
-    pub fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+#[async_trait::async_trait]
+impl UserStore for HashmapUserStore {
+    async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         if self.users.contains_key(&user.email) {
             return Err(UserStoreError::UserAlreadyExists);
         }
@@ -24,14 +17,14 @@ impl HashmapUserStore {
         Ok(())
     }
 
-    pub fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
         match self.users.get(email) {
             Some(user) => Ok(user.clone()),
             None => Err(UserStoreError::UserNotFound),
         }
     }
 
-    pub fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
         match self.users.get(email) {
             Some(user) if user.password == password => Ok(()),
             Some(_) => Err(UserStoreError::InvalidCredentials),
@@ -48,13 +41,13 @@ mod tests {
     async fn test_add_user() {
         let mut store = HashmapUserStore::default();
         let user = User::new("user1", "password123", true);
-        let result = store.add_user(user);
+        let result = store.add_user(user).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), ());
         assert_eq!(store.users.len(), 1);
 
         let user = User::new("user1", "password123", true);
-        let result = store.add_user(user);
+        let result = store.add_user(user).await;
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), UserStoreError::UserAlreadyExists);
     }
@@ -64,13 +57,13 @@ mod tests {
         let mut store = HashmapUserStore::default();
         let user = User::new("user1", "password123", true);
         let user_clone = user.clone();
-        store.add_user(user).unwrap();
+        store.add_user(user).await.unwrap();
 
-        let retr_user_ok = store.get_user("user1");
+        let retr_user_ok = store.get_user("user1").await;
         assert!(retr_user_ok.is_ok());
         assert_eq!(retr_user_ok.unwrap(), user_clone);
 
-        let retr_user_not_found = store.get_user("user2");
+        let retr_user_not_found = store.get_user("user2").await;
         assert!(retr_user_not_found.is_err());
         assert_eq!(
             retr_user_not_found.unwrap_err(),
@@ -82,20 +75,20 @@ mod tests {
     async fn test_validate_user() {
         let mut store = HashmapUserStore::default();
         let user = User::new("user1", "password123", true);
-        store.add_user(user).unwrap();
+        store.add_user(user).await.unwrap();
 
-        let result_ok = store.validate_user("user1", "password123");
+        let result_ok = store.validate_user("user1", "password123").await;
         assert!(result_ok.is_ok());
         assert_eq!(result_ok.unwrap(), ());
 
-        let result_invalid_cred = store.validate_user("user1", "password234");
+        let result_invalid_cred = store.validate_user("user1", "password234").await;
         assert!(result_invalid_cred.is_err());
         assert_eq!(
             result_invalid_cred.unwrap_err(),
             UserStoreError::InvalidCredentials
         );
 
-        let result_not_found = store.validate_user("user2", "password234");
+        let result_not_found = store.validate_user("user2", "password234").await;
         assert!(result_not_found.is_err());
         assert_eq!(result_not_found.unwrap_err(), UserStoreError::UserNotFound);
     }
