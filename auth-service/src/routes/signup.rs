@@ -10,6 +10,9 @@ pub async fn signup(
     State(state): State<AppState>,
     Json(request): Json<SignupRequest>,
 ) -> Result<impl IntoResponse, AuthAPIError> {
+    // Json extracts the JSON body from the request and deserializes it into SignupRequest
+    // sends 422 automatically if the request body is malformed
+
     let email = Email::parse(request.email).map_err(|_| AuthAPIError::InvalidCredentials)?;
     let password =
         Password::parse(request.password).map_err(|_| AuthAPIError::InvalidCredentials)?;
