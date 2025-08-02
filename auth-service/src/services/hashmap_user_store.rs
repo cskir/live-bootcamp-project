@@ -17,16 +17,20 @@ impl UserStore for HashmapUserStore {
         Ok(())
     }
 
-    async fn get_user(&self, email: Email) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         match self.users.get(&email) {
             Some(user) => Ok(user.clone()),
             None => Err(UserStoreError::UserNotFound),
         }
     }
 
-    async fn validate_user(&self, email: Email, password: Password) -> Result<(), UserStoreError> {
+    async fn validate_user(
+        &self,
+        email: &Email,
+        password: &Password,
+    ) -> Result<(), UserStoreError> {
         match self.users.get(&email) {
-            Some(user) if user.password == password => Ok(()),
+            Some(user) if user.password.eq(password) => Ok(()),
             Some(_) => Err(UserStoreError::InvalidCredentials),
             None => Err(UserStoreError::UserNotFound),
         }
@@ -68,12 +72,12 @@ mod tests {
         let user_clone = user.clone();
         store.add_user(user).await.unwrap();
 
-        let retr_user_ok = store.get_user(user_clone.email.clone()).await;
+        let retr_user_ok = store.get_user(&user_clone.email).await;
         assert!(retr_user_ok.is_ok());
         assert_eq!(retr_user_ok.unwrap(), user_clone);
 
         let email2 = Email::parse("user2@a.com".to_string()).unwrap();
-        let retr_user_not_found = store.get_user(email2).await;
+        let retr_user_not_found = store.get_user(&email2).await;
         assert!(retr_user_not_found.is_err());
         assert_eq!(
             retr_user_not_found.unwrap_err(),
@@ -89,19 +93,14 @@ mod tests {
             Password::parse("password123".to_string()).unwrap(),
             true,
         );
-        let user_clone = user.clone();
-        store.add_user(user).await.unwrap();
+        store.add_user(user.clone()).await.unwrap();
 
-        let result_ok = store
-            .validate_user(user_clone.email.clone(), user_clone.password)
-            .await;
+        let result_ok = store.validate_user(&user.email, &user.password).await;
         assert!(result_ok.is_ok());
         assert_eq!(result_ok.unwrap(), ());
 
         let password2 = Password::parse("password234".to_string()).unwrap();
-        let result_invalid_cred = store
-            .validate_user(user_clone.email, password2.clone())
-            .await;
+        let result_invalid_cred = store.validate_user(&user.email, &password2).await;
         assert!(result_invalid_cred.is_err());
         assert_eq!(
             result_invalid_cred.unwrap_err(),
@@ -109,7 +108,7 @@ mod tests {
         );
 
         let email2 = Email::parse("user2@a.com".to_string()).unwrap();
-        let result_not_found = store.validate_user(email2, password2).await;
+        let result_not_found = store.validate_user(&email2, &password2).await;
         assert!(result_not_found.is_err());
         assert_eq!(result_not_found.unwrap_err(), UserStoreError::UserNotFound);
     }

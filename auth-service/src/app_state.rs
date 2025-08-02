@@ -3,7 +3,7 @@ use tokio::sync::RwLock;
 
 use crate::domain::UserStore;
 
-pub type UserStoreType = Arc<RwLock<dyn UserStore>>;
+pub type UserStoreType = Arc<RwLock<dyn UserStore + Send + Sync>>;
 
 #[derive(Clone)]
 pub struct AppState {
