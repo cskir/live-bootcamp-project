@@ -1,11 +1,15 @@
+use reqwest::cookie::Jar;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use auth_service::{app_state::AppState, services::HashmapUserStore, Application};
+use auth_service::{
+    app_state::AppState, services::HashmapUserStore, utils::constants::test, Application,
+};
 use uuid::Uuid;
 
 pub struct TestApp {
     pub address: String,
+    pub cookie_jar: Arc<Jar>,
     pub http_client: reqwest::Client,
 }
 
@@ -15,7 +19,7 @@ impl TestApp {
         let app_state = AppState::new(user_store);
 
         // port 0: find a random port for the auth service
-        let app = Application::build(app_state, "127.0.0.1:0")
+        let app = Application::build(app_state, test::APP_ADDRESS)
             .await
             .expect("Failed to build app");
 
@@ -26,11 +30,16 @@ impl TestApp {
         #[allow(clippy::let_underscore_future)]
         let _ = tokio::spawn(app.run());
 
-        let http_client = reqwest::Client::new(); // Create a Reqwest http client instance
+        let cookie_jar = Arc::new(Jar::default());
+        let http_client = reqwest::Client::builder()
+            .cookie_provider(cookie_jar.clone())
+            .build()
+            .unwrap();
 
         // Create new `TestApp` instance and return it
         TestApp {
             address,
+            cookie_jar,
             http_client,
         }
     }
