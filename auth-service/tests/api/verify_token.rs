@@ -30,11 +30,16 @@ async fn should_return_200_valid_token() {
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
         .expect("No auth cookie found");
 
+    assert!(!auth_cookie.value().is_empty());
+
+    let token = auth_cookie.value();
+
     let verify_token_request = serde_json::json!({
-        "token": auth_cookie.value()
+        "token": token
     });
 
     let response = app.post_verify_token(&verify_token_request).await;
+
     assert_eq!(response.status().as_u16(), 200, "Expected 200 OK response");
 }
 
@@ -47,22 +52,26 @@ async fn should_return_401_if_invalid_token() {
         JWT_COOKIE_NAME
     );
 
-    let verify_token_request = serde_json::json!({
-        "token": cookie_str
-    });
+    let test_cases = [
+        serde_json::json!({"token": cookie_str}),
+        serde_json::json!({"token": "invalid_token"}),
+        serde_json::json!({"token": ""}),
+    ];
 
-    let response = app.post_verify_token(&verify_token_request).await;
+    for test_case in test_cases.iter() {
+        let response = app.post_verify_token(test_case).await;
 
-    assert_eq!(response.status().as_u16(), 401);
+        assert_eq!(response.status().as_u16(), 401);
 
-    assert_eq!(
-        response
-            .json::<ErrorResponse>()
-            .await
-            .expect("Could not deserialize response body to ErrorResponse")
-            .error,
-        "Invalid token".to_owned(),
-    )
+        assert_eq!(
+            response
+                .json::<ErrorResponse>()
+                .await
+                .expect("Could not deserialize response body to ErrorResponse")
+                .error,
+            "Invalid auth token".to_owned(),
+        )
+    }
 }
 
 #[tokio::test]
@@ -93,12 +102,17 @@ async fn should_return_401_if_banned_token() {
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
         .expect("No auth cookie found");
 
-    let verify_token_request = serde_json::json!({
-        "token": auth_cookie.value()
-    });
+    assert!(!auth_cookie.value().is_empty());
+
+    let token = auth_cookie.value();
 
     let response = app.post_logout().await;
+
     assert_eq!(response.status().as_u16(), 200);
+
+    let verify_token_request = serde_json::json!({
+        "token": token
+    });
 
     let response = app.post_verify_token(&verify_token_request).await;
 
@@ -110,7 +124,7 @@ async fn should_return_401_if_banned_token() {
             .await
             .expect("Could not deserialize response body to ErrorResponse")
             .error,
-        "Invalid token".to_owned(),
+        "Invalid auth token".to_owned(),
     )
 }
 
@@ -118,21 +132,22 @@ async fn should_return_401_if_banned_token() {
 async fn should_return_422_if_malformed_request() {
     let app = TestApp::new().await;
 
-    let verify_token_requests = [
+    let test_cases = [
         serde_json::json!({
             "tok": "token"
         }),
         serde_json::json!({}),
+        serde_json::json!({"token": 0}),
     ];
 
-    for verify_token_request in verify_token_requests.iter() {
-        let response = app.post_verify_token(verify_token_request).await;
+    for test_case in test_cases.iter() {
+        let response = app.post_verify_token(test_case).await;
 
         assert_eq!(
             response.status().as_u16(),
             422,
             "Malformed request: {:?}",
-            verify_token_request
+            test_case
         );
     }
 }

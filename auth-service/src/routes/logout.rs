@@ -1,12 +1,11 @@
-use std::sync::Arc;
-
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
-use axum_extra::extract::CookieJar;
+use axum_extra::extract::{cookie, CookieJar};
 
-use crate::app_state::AppState;
-use crate::domain::AuthAPIError;
-use crate::utils::auth::validate_token;
-use crate::utils::constants::JWT_COOKIE_NAME;
+use crate::{
+    app_state::AppState,
+    domain::AuthAPIError,
+    utils::{auth::validate_token, constants::JWT_COOKIE_NAME},
+};
 
 pub async fn logout(
     State(state): State<AppState>,
@@ -19,18 +18,23 @@ pub async fn logout(
 
     let token = cookie.value().to_owned();
 
-    let banned_token_store = Arc::clone(&state.banned_token_store);
-
-    match validate_token(&token, banned_token_store).await {
-        Ok(_) => {}
+    let _ = match validate_token(&token, state.banned_token_store.clone()).await {
+        Ok(claims) => claims,
         Err(_) => return (jar, Err(AuthAPIError::InvalidToken)),
+    };
+
+    if state
+        .banned_token_store
+        .write()
+        .await
+        .add_token(token.to_owned())
+        .await
+        .is_err()
+    {
+        return (jar, Err(AuthAPIError::UnexpectedError));
     }
 
-    let jar = jar.remove(JWT_COOKIE_NAME);
-
-    let mut banned_token_store = state.banned_token_store.write().await;
-
-    banned_token_store.ban_token(token).await;
+    let jar = jar.remove(cookie::Cookie::from(JWT_COOKIE_NAME));
 
     (jar, Ok(StatusCode::OK))
 }

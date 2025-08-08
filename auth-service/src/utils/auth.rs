@@ -61,12 +61,19 @@ pub async fn validate_token(
     token: &str,
     banned_token_store: BannedTokenStoreType,
 ) -> Result<Claims, jsonwebtoken::errors::Error> {
-    let banned = banned_token_store.read().await.is_banned(token).await;
-
-    if banned {
-        return Err(jsonwebtoken::errors::Error::from(
-            jsonwebtoken::errors::ErrorKind::InvalidToken,
-        ));
+    match banned_token_store.read().await.contains_token(token).await {
+        Ok(contains) => {
+            if contains {
+                return Err(jsonwebtoken::errors::Error::from(
+                    jsonwebtoken::errors::ErrorKind::InvalidToken,
+                ));
+            }
+        }
+        Err(_) => {
+            return Err(jsonwebtoken::errors::Error::from(
+                jsonwebtoken::errors::ErrorKind::InvalidToken,
+            ));
+        }
     }
 
     decode::<Claims>(
@@ -156,7 +163,7 @@ mod tests {
         let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         {
             let mut store = banned_token_store.write().await;
-            store.ban_token(token.clone()).await;
+            store.add_token(token.clone()).await.unwrap();
         }
 
         let result = validate_token(&token, banned_token_store).await;

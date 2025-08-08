@@ -33,7 +33,6 @@ impl Application {
             "http://157.245.90.45:8000".parse()?,
         ];
         let cors = CorsLayer::new()
-            // Allow GET and POST requests
             .allow_methods([Method::GET, Method::POST])
             // Allow cookies to be included in requests
             .allow_credentials(true)
@@ -76,8 +75,8 @@ impl IntoResponse for AuthAPIError {
             AuthAPIError::IncorrectCredentials => {
                 (StatusCode::UNAUTHORIZED, "Incorrect credentials")
             }
-            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing token"),
-            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid token"),
+            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing auth token"),
+            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid auth token"),
             AuthAPIError::UnexpectedError => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
             }

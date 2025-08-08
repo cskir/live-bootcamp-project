@@ -1,18 +1,19 @@
-use crate::domain::BannedTokenStore;
+use crate::domain::{BannedTokenStore, BannedTokenStoreError};
 use std::collections::HashSet;
 
 #[derive(Default, Clone)]
 pub struct HashsetBannedTokenStore {
-    banned_tokens: HashSet<String>,
+    tokens: HashSet<String>,
 }
 #[async_trait::async_trait]
 impl BannedTokenStore for HashsetBannedTokenStore {
-    async fn ban_token(&mut self, token: String) {
-        self.banned_tokens.insert(token);
+    async fn add_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
+        self.tokens.insert(token);
+        Ok(())
     }
 
-    async fn is_banned(&self, token: &str) -> bool {
-        self.banned_tokens.contains(token)
+    async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+        Ok(self.tokens.contains(token))
     }
 }
 #[cfg(test)]
@@ -20,28 +21,24 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_ban_token() {
-        let mut store = HashsetBannedTokenStore {
-            banned_tokens: HashSet::new(),
-        };
+    async fn test_add_token() {
+        let mut store = HashsetBannedTokenStore::default();
 
         let token = "test_token".to_string();
-        store.ban_token(token.clone()).await;
+        let result = store.add_token(token.clone()).await;
 
-        assert!(store.banned_tokens.len() == 1);
-        assert!(store.banned_tokens.contains(&token));
+        assert!(result.is_ok());
+        assert!(store.tokens.len() == 1);
+        assert!(store.tokens.contains(&token));
     }
 
     #[tokio::test]
-    async fn test_is_banned() {
-        let mut store = HashsetBannedTokenStore {
-            banned_tokens: HashSet::new(),
-        };
-
+    async fn test_contains_token() {
+        let mut store = HashsetBannedTokenStore::default();
         let token = "test_token".to_string();
-        store.ban_token(token.clone()).await;
+        store.add_token(token.clone()).await.unwrap();
 
-        assert!(store.is_banned(&token).await);
-        assert!(!store.is_banned("another_token").await);
+        assert!(store.contains_token(&token).await.unwrap());
+        assert!(!store.contains_token("another_token").await.unwrap());
     }
 }

@@ -1,5 +1,5 @@
 use crate::helpers::{get_random_email, TestApp};
-use auth_service::utils::constants::JWT_COOKIE_NAME;
+use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
 
 #[tokio::test]
 async fn should_return_422_if_malformed_request() {
@@ -66,6 +66,15 @@ async fn should_return_400_if_invalid_input() {
             "Invalid input: {:?}",
             login_request
         );
+
+        assert_eq!(
+            response
+                .json::<ErrorResponse>()
+                .await
+                .expect("Could not deserialize response body to ErrorResponse")
+                .error,
+            "Invalid credentials".to_owned()
+        );
     }
 }
 
@@ -80,18 +89,36 @@ async fn should_return_401_if_incorrect_credentials() {
     });
     app.post_signup(&test_user).await;
 
-    let login_request = serde_json::json!({
-        "email": random_email.clone(),
-        "password": "password1234",
-    });
-    let response = app.post_login(&login_request).await;
+    let test_cases = vec![
+        (random_email.as_str(), "wrong_password"),
+        ("wrong@email.com", "password123"),
+        ("wrong@email.com", "wrong_password"),
+    ];
 
-    assert_eq!(
-        response.status().as_u16(),
-        401,
-        "Incorrect credentials: {:?}",
-        login_request
-    );
+    for (email, password) in test_cases {
+        let login_request = serde_json::json!({
+            "email": email,
+            "password": password,
+        });
+
+        let response = app.post_login(&login_request).await;
+
+        assert_eq!(
+            response.status().as_u16(),
+            401,
+            "Failed for input: {:?}",
+            login_request
+        );
+
+        assert_eq!(
+            response
+                .json::<ErrorResponse>()
+                .await
+                .expect("Could not deserialize response body to ErrorResponse")
+                .error,
+            "Incorrect credentials".to_owned()
+        );
+    }
 }
 
 #[tokio::test]
