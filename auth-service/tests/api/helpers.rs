@@ -6,6 +6,7 @@ use auth_service::{
     app_state::{AppState, BannedTokenStoreType},
     services::{HashmapUserStore, HashsetBannedTokenStore},
     utils::constants::test,
+    utils::constants::JWT_COOKIE_NAME,
     Application,
 };
 use uuid::Uuid;
@@ -113,4 +114,19 @@ impl TestApp {
 
 pub fn get_random_email() -> String {
     format!("{}@example.com", Uuid::new_v4())
+}
+
+pub trait ExtractResponse {
+    fn get_auth_cookie(&self) -> Option<reqwest::cookie::Cookie>;
+    fn find_cookie_by_name(&self, name: &str) -> Option<reqwest::cookie::Cookie>;
+}
+
+impl ExtractResponse for reqwest::Response {
+    fn get_auth_cookie(&self) -> Option<reqwest::cookie::Cookie> {
+        self.find_cookie_by_name(JWT_COOKIE_NAME)
+    }
+
+    fn find_cookie_by_name(&self, name: &str) -> Option<reqwest::cookie::Cookie> {
+        self.cookies().find(|cookie| cookie.name() == name)
+    }
 }

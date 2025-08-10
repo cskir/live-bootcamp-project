@@ -1,7 +1,7 @@
 use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
 use reqwest::Url;
 
-use crate::helpers::{get_random_email, TestApp};
+use crate::helpers::{get_random_email, ExtractResponse, TestApp};
 
 #[tokio::test]
 async fn should_return_200_if_valid_jwt_cookie() {
@@ -28,10 +28,7 @@ async fn should_return_200_if_valid_jwt_cookie() {
 
     assert_eq!(response.status().as_u16(), 200);
 
-    let auth_cookie = response
-        .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect("No auth cookie found");
+    let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
 
@@ -41,10 +38,7 @@ async fn should_return_200_if_valid_jwt_cookie() {
 
     assert_eq!(response.status().as_u16(), 200);
 
-    let auth_cookie = response
-        .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect("No auth cookie found");
+    let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
 
     assert!(auth_cookie.value().is_empty());
 
@@ -71,9 +65,7 @@ async fn should_return_400_if_jwt_cookie_missing() {
         "The API did not return a 400 BAD REQUEST",
     );
 
-    let auth_cookie = response
-        .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME);
+    let auth_cookie = response.get_auth_cookie();
 
     assert!(auth_cookie.is_none());
 
@@ -112,10 +104,7 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
 
     assert_eq!(response.status().as_u16(), 200);
 
-    let auth_cookie = response
-        .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect("No auth cookie found");
+    let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
 
@@ -123,10 +112,7 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
 
     assert_eq!(response.status().as_u16(), 200);
 
-    let auth_cookie = response
-        .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect("No auth cookie found");
+    let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
 
     assert!(auth_cookie.value().is_empty());
 
@@ -160,9 +146,7 @@ async fn should_return_401_if_invalid_token() {
 
     assert_eq!(response.status().as_u16(), 401);
 
-    let auth_cookie = response
-        .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME);
+    let auth_cookie = response.get_auth_cookie();
 
     assert!(auth_cookie.is_none());
 

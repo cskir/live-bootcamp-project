@@ -1,5 +1,5 @@
-use crate::helpers::{get_random_email, TestApp};
-use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
+use crate::helpers::{get_random_email, ExtractResponse, TestApp};
+use auth_service::ErrorResponse;
 
 #[tokio::test]
 async fn should_return_422_if_malformed_request() {
@@ -146,10 +146,7 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
 
     assert_eq!(response.status().as_u16(), 200);
 
-    let auth_cookie = response
-        .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect("No auth cookie found");
+    let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
 }
