@@ -1,34 +1,77 @@
 use crate::helpers::{get_random_email, ExtractResponse, TestApp};
-use auth_service::ErrorResponse;
+use auth_service::{domain::Email, routes::TwoFactorAuthResponse, ErrorResponse};
 
 #[tokio::test]
-async fn should_return_422_if_malformed_request() {
+async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
     let app = TestApp::new().await;
 
-    let login_requests = [
-        serde_json::json!({
-            "password": "password123"
-        }),
-        serde_json::json!({
-            "email": "a@a.com",
-        }),
-        serde_json::json!({
-            "e-mail": "a@a.com",
-            "password": "password123"
-        }),
-        serde_json::json!({}),
-    ];
+    let random_email = get_random_email();
 
-    for login_request in login_requests.iter() {
-        let response = app.post_login(login_request).await;
+    let signup_body = serde_json::json!({
+        "email": random_email,
+        "password": "password123",
+        "requires2FA": false
+    });
 
-        assert_eq!(
-            response.status().as_u16(),
-            422,
-            "Malformed request: {:?}",
-            login_request
-        );
-    }
+    let response = app.post_signup(&signup_body).await;
+
+    assert_eq!(response.status().as_u16(), 201);
+
+    let login_body = serde_json::json!({
+        "email": random_email,
+        "password": "password123",
+    });
+
+    let response = app.post_login(&login_body).await;
+
+    assert_eq!(response.status().as_u16(), 200);
+
+    let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
+
+    assert!(!auth_cookie.value().is_empty());
+}
+
+#[tokio::test]
+async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
+    let app = TestApp::new().await;
+
+    let random_email = get_random_email();
+
+    let signup_body = serde_json::json!({
+        "email": random_email,
+        "password": "password123",
+        "requires2FA": true
+    });
+
+    let response = app.post_signup(&signup_body).await;
+
+    assert_eq!(response.status().as_u16(), 201);
+
+    let login_body = serde_json::json!({
+        "email": random_email,
+        "password": "password123",
+    });
+
+    let response = app.post_login(&login_body).await;
+
+    assert_eq!(response.status().as_u16(), 206);
+
+    let json_body = response
+        .json::<TwoFactorAuthResponse>()
+        .await
+        .expect("Could not deserialize response body to TwoFactorAuthResponse");
+
+    assert_eq!(json_body.message, "2FA required".to_owned());
+
+    let email = Email::parse(random_email).unwrap();
+
+    let result = app.two_fa_code_store.read().await.get_code(&email).await;
+
+    assert!(result.is_ok(), "Failed to get 2FA code from store");
+
+    let (login_attempt_id, _) = result.unwrap();
+
+    assert_eq!(json_body.login_attempt_id, login_attempt_id.as_ref());
 }
 
 #[tokio::test]
@@ -122,31 +165,31 @@ async fn should_return_401_if_incorrect_credentials() {
 }
 
 #[tokio::test]
-async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
+async fn should_return_422_if_malformed_request() {
     let app = TestApp::new().await;
 
-    let random_email = get_random_email();
+    let login_requests = [
+        serde_json::json!({
+            "password": "password123"
+        }),
+        serde_json::json!({
+            "email": "a@a.com",
+        }),
+        serde_json::json!({
+            "e-mail": "a@a.com",
+            "password": "password123"
+        }),
+        serde_json::json!({}),
+    ];
 
-    let signup_body = serde_json::json!({
-        "email": random_email,
-        "password": "password123",
-        "requires2FA": false
-    });
+    for login_request in login_requests.iter() {
+        let response = app.post_login(login_request).await;
 
-    let response = app.post_signup(&signup_body).await;
-
-    assert_eq!(response.status().as_u16(), 201);
-
-    let login_body = serde_json::json!({
-        "email": random_email,
-        "password": "password123",
-    });
-
-    let response = app.post_login(&login_body).await;
-
-    assert_eq!(response.status().as_u16(), 200);
-
-    let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
-
-    assert!(!auth_cookie.value().is_empty());
+        assert_eq!(
+            response.status().as_u16(),
+            422,
+            "Malformed request: {:?}",
+            login_request
+        );
+    }
 }
