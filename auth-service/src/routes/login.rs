@@ -63,8 +63,6 @@ async fn handle_2fa(
 
     if state
         .email_client
-        .read()
-        .await
         .send_email(&email, "2AF Code", two_fa_code.as_ref())
         .await
         .is_err()

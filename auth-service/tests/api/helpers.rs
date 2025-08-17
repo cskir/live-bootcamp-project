@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
-    services::{HashmapTwoFACodeStore, HashmapUserStore, HashsetBannedTokenStore},
+    services::{HashmapTwoFACodeStore, HashmapUserStore, HashsetBannedTokenStore, MockEmailClient},
     utils::constants::test,
     utils::constants::JWT_COOKIE_NAME,
     Application,
@@ -24,9 +24,7 @@ impl TestApp {
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
         let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
-        let email_client = Arc::new(RwLock::new(
-            auth_service::services::mock_email_client::MockEmailClient::default(),
-        ));
+        let email_client = Arc::new(MockEmailClient);
 
         let app_state = AppState::new(
             user_store,
