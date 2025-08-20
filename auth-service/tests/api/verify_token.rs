@@ -4,7 +4,7 @@ use crate::helpers::{get_random_email, ExtractResponse, TestApp};
 
 #[tokio::test]
 async fn should_return_200_valid_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -38,11 +38,13 @@ async fn should_return_200_valid_token() {
     let response = app.post_verify_token(&verify_token_request).await;
 
     assert_eq!(response.status().as_u16(), 200, "Expected 200 OK response");
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let cookie_str = &format!(
         "{}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/",
@@ -69,11 +71,13 @@ async fn should_return_401_if_invalid_token() {
             "Invalid auth token".to_owned(),
         )
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_banned_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -119,12 +123,14 @@ async fn should_return_401_if_banned_token() {
             .expect("Could not deserialize response body to ErrorResponse")
             .error,
         "Invalid auth token".to_owned(),
-    )
+    );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_422_if_malformed_request() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let test_cases = [
         serde_json::json!({
@@ -144,4 +150,6 @@ async fn should_return_422_if_malformed_request() {
             test_case
         );
     }
+
+    app.clean_up().await;
 }

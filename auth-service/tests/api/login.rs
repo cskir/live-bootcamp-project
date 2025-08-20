@@ -3,7 +3,7 @@ use auth_service::{domain::Email, routes::TwoFactorAuthResponse, ErrorResponse};
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -29,11 +29,13 @@ async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
     let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -72,11 +74,13 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let (login_attempt_id, _) = result.unwrap();
 
     assert_eq!(json_body.login_attempt_id, login_attempt_id.as_ref());
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let login_requests = [
         serde_json::json!({
             "email": "",
@@ -119,11 +123,13 @@ async fn should_return_400_if_invalid_input() {
             "Invalid credentials".to_owned()
         );
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
     let test_user = serde_json::json!({
         "email": random_email.clone(),
@@ -162,11 +168,13 @@ async fn should_return_401_if_incorrect_credentials() {
             "Incorrect credentials".to_owned()
         );
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_422_if_malformed_request() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let login_requests = [
         serde_json::json!({
@@ -192,4 +200,6 @@ async fn should_return_422_if_malformed_request() {
             login_request
         );
     }
+
+    app.clean_up().await;
 }

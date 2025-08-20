@@ -5,7 +5,7 @@ use crate::helpers::{get_random_email, ExtractResponse, TestApp};
 
 #[tokio::test]
 async fn should_return_200_if_valid_jwt_cookie() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -51,11 +51,13 @@ async fn should_return_200_if_valid_jwt_cookie() {
         .expect("Failed to check if token is banned");
 
     assert!(contains_token, "Token should be banned after logout");
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_400_if_jwt_cookie_missing() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let response = app.post_logout().await;
 
@@ -77,11 +79,13 @@ async fn should_return_400_if_jwt_cookie_missing() {
             .error,
         "Missing auth token".to_owned(),
     );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_400_if_logout_called_twice_in_a_row() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let random_email = get_random_email();
 
@@ -128,11 +132,13 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
             .error,
         "Missing auth token".to_owned(),
     );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let cookie_str = &format!(
         "{}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/",
         JWT_COOKIE_NAME
@@ -158,4 +164,6 @@ async fn should_return_401_if_invalid_token() {
             .error,
         "Invalid auth token".to_owned(),
     );
+
+    app.clean_up().await;
 }

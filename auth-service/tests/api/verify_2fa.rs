@@ -7,7 +7,7 @@ use crate::helpers::{get_random_email, ExtractResponse, TestApp};
 
 #[tokio::test]
 async fn should_return_200_if_correct_code() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
 
     let signup_body = serde_json::json!({
@@ -46,11 +46,13 @@ async fn should_return_200_if_correct_code() {
     let auth_cookie = response.get_auth_cookie().expect("No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let input_requests = [
         ("", "", ""),
         ("", "loginAttemptId", "2FACode"),
@@ -84,11 +86,13 @@ async fn should_return_400_if_invalid_input() {
             "Invalid credentials".to_owned()
         );
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_invalid_credentials() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let email = get_random_email();
     let password = "password123".to_string();
     let test_user = serde_json::json!({
@@ -137,11 +141,13 @@ async fn should_return_401_if_invalid_credentials() {
             "Incorrect credentials".to_owned()
         );
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_old_code() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
 
     let signup_body = serde_json::json!({
@@ -198,11 +204,13 @@ async fn should_return_401_if_old_code() {
             .error,
         "Incorrect credentials".to_owned()
     );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_401_if_same_code_twice() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
 
     let signup_body = serde_json::json!({
@@ -259,11 +267,13 @@ async fn should_return_401_if_same_code_twice() {
             .error,
         "Incorrect credentials".to_owned()
     );
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = get_random_email();
     let login_attempt_id = LoginAttemptId::default();
     let two_fa_code = "test_code".to_string();
@@ -303,4 +313,6 @@ async fn should_return_422_if_malformed_input() {
             login_request
         );
     }
+
+    app.clean_up().await;
 }
