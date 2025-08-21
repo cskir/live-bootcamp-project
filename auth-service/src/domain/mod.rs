@@ -2,7 +2,6 @@ pub mod data_stores;
 pub mod email;
 pub mod email_client;
 mod error;
-pub mod login_attempt_id;
 mod password;
 mod user;
 
