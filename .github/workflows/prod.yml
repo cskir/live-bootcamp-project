@@ -5,7 +5,7 @@ on:
     branches:
       - main
 
-# New! We want to make sure SQLx doesn't throw compile time errors so we force offline mode.
+# We want to make sure SQLx doesn't throw compile time errors so we force offline mode.
 env:
   SQLX_OFFLINE: true
 
@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # New! Our tests now require a running PostgreSQL and Redis instance!
+    # Our tests now require a running PostgreSQL and Redis instance!
     # Service containers to run with the `test` container job
     services:
       postgres:
@@ -59,7 +59,7 @@ jobs:
           cargo build --verbose
           cargo test --verbose
 
-        # New! Added DATABASE_URL environment variable!
+        # Added DATABASE_URL environment variable!
       - name: Build and test auth-service code
         working-directory: ./auth-service
         run: |
@@ -108,7 +108,7 @@ jobs:
       - name: Copy compose.yml to droplet
         run: sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
 
-        # New! Added POSTGRES_PASSWORD environment variable!
+        # Added POSTGRES_PASSWORD environment variable!
       - name: Deploy
         uses: appleboy/ssh-action@master
         with:
