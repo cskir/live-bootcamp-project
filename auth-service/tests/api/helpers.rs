@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType},
     get_postgres_pool, get_redis_client,
-    services::{HashmapTwoFACodeStore, MockEmailClient, PostgresUserStore, RedisBannedTokenStore},
+    services::{MockEmailClient, PostgresUserStore, RedisBannedTokenStore, RedisTwoFACodeStore},
     utils::constants::{test, DATABASE_URL, JWT_COOKIE_NAME, REDIS_HOST_NAME},
     Application,
 };
@@ -41,12 +41,12 @@ impl TestApp {
 
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
 
-        let redis_conn = configure_redis();
-        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(
-            RwLock::new(redis_conn),
-        ))));
+        let redis_conn = Arc::new(RwLock::new(configure_redis()));
 
-        let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
+        let banned_token_store =
+            Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_conn.clone())));
+        let two_fa_code_store = Arc::new(RwLock::new(RedisTwoFACodeStore::new(redis_conn.clone())));
+
         let email_client = Arc::new(MockEmailClient);
 
         let app_state = AppState::new(

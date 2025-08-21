@@ -1,6 +1,9 @@
-use crate::domain::{Email, LoginAttemptId, Password, TwoFACode};
+use crate::domain::{Email, Password};
 
 use super::User;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[async_trait::async_trait]
 pub trait UserStore {
@@ -48,4 +51,100 @@ pub trait TwoFACodeStore {
 pub enum TwoFACodeStoreError {
     LoginAttemptIdNotFound,
     UnexpectedError,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TwoFACode(String);
+
+impl TwoFACode {
+    pub fn parse(code: String) -> Result<Self, String> {
+        if code.len() != 6 || !code.chars().all(char::is_numeric) {
+            return Err(format!("Invalid TwoFACode: {}", code));
+        }
+        Ok(Self(code))
+    }
+}
+
+impl Default for TwoFACode {
+    fn default() -> Self {
+        let mut rng = rand::thread_rng();
+        Self(rng.gen_range(100000..999999).to_string())
+    }
+}
+
+impl AsRef<str> for TwoFACode {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LoginAttemptId(pub String);
+
+impl LoginAttemptId {
+    pub fn parse(id: String) -> Result<Self, String> {
+        Uuid::parse_str(&id).map_err(|_| format!("Invalid LoginAttemptId: {}", id))?;
+        Ok(Self(id))
+    }
+}
+
+impl Default for LoginAttemptId {
+    fn default() -> Self {
+        Self(Uuid::new_v4().to_string())
+    }
+}
+
+impl AsRef<str> for LoginAttemptId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TwoFACode;
+
+    #[test]
+    fn empty_code_is_rejected() {
+        let code = "".to_string();
+        assert!(TwoFACode::parse(code).is_err());
+    }
+
+    #[test]
+    fn short_code_is_rejected() {
+        let code = "12345".to_string();
+        assert!(TwoFACode::parse(code).is_err());
+    }
+
+    #[test]
+    fn long_code_is_rejected() {
+        let code = "1234567".to_string();
+        assert!(TwoFACode::parse(code).is_err());
+    }
+
+    #[test]
+    fn not_numeric_code_is_rejected() {
+        let code = "12345a".to_string();
+        assert!(TwoFACode::parse(code).is_err());
+    }
+
+    use super::LoginAttemptId;
+
+    #[test]
+    fn empty_id_is_rejected() {
+        let id = "".to_string();
+        assert!(LoginAttemptId::parse(id).is_err());
+    }
+
+    #[test]
+    fn invalid_uuid_is_rejected() {
+        let id = "invalid-uuid".to_string();
+        assert!(LoginAttemptId::parse(id).is_err());
+    }
+
+    #[test]
+    fn valid_uuid_is_accepted() {
+        let id = uuid::Uuid::new_v4().to_string();
+        assert!(LoginAttemptId::parse(id).is_ok());
+    }
 }
