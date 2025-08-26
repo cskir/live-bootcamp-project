@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
 use crate::domain::{Email, LoginAttemptId, TwoFACode, TwoFACodeStore, TwoFACodeStoreError};
+use color_eyre::eyre::{eyre, Result};
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct HashmapTwoFACodeStore {
@@ -21,7 +21,9 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
 
     async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError> {
         if self.codes.remove(email).is_none() {
-            return Err(TwoFACodeStoreError::UnexpectedError);
+            return Err(TwoFACodeStoreError::UnexpectedError(eyre!(
+                "code not found"
+            )));
         }
         Ok(())
     }
@@ -130,6 +132,5 @@ mod tests {
         let result = store.remove_code(&email).await;
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), TwoFACodeStoreError::UnexpectedError);
     }
 }
