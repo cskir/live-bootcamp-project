@@ -39,14 +39,16 @@ impl UserStore for HashmapUserStore {
 
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     use super::*;
 
     #[tokio::test]
     async fn test_add_user() {
         let mut store = HashmapUserStore::default();
         let user = User::new(
-            Email::parse("user1@a.com".to_string()).unwrap(),
-            Password::parse("password123".to_string()).unwrap(),
+            Email::parse(Secret::new("user1@a.com".to_string())).unwrap(),
+            Password::parse(Secret::new("password123".to_owned())).unwrap(),
             true,
         );
         let user_clone = user.clone();
@@ -65,8 +67,8 @@ mod tests {
     async fn test_get_user() {
         let mut store = HashmapUserStore::default();
         let user = User::new(
-            Email::parse("user1@a.com".to_string()).unwrap(),
-            Password::parse("password123".to_string()).unwrap(),
+            Email::parse(Secret::new("user1@a.com".to_string())).unwrap(),
+            Password::parse(Secret::new("password123".to_owned())).unwrap(),
             true,
         );
         let user_clone = user.clone();
@@ -76,7 +78,7 @@ mod tests {
         assert!(retr_user_ok.is_ok());
         assert_eq!(retr_user_ok.unwrap(), user_clone);
 
-        let email2 = Email::parse("user2@a.com".to_string()).unwrap();
+        let email2 = Email::parse(Secret::new("user2@a.com".to_string())).unwrap();
         let retr_user_not_found = store.get_user(&email2).await;
         assert!(retr_user_not_found.is_err());
         assert_eq!(
@@ -89,8 +91,8 @@ mod tests {
     async fn test_validate_user() {
         let mut store = HashmapUserStore::default();
         let user = User::new(
-            Email::parse("user1@a.com".to_string()).unwrap(),
-            Password::parse("password123".to_string()).unwrap(),
+            Email::parse(Secret::new("user1@a.com".to_string())).unwrap(),
+            Password::parse(Secret::new("password123".to_string())).unwrap(),
             true,
         );
         store.add_user(user.clone()).await.unwrap();
@@ -99,7 +101,7 @@ mod tests {
         assert!(result_ok.is_ok());
         assert_eq!(result_ok.unwrap(), ());
 
-        let password2 = Password::parse("password234".to_string()).unwrap();
+        let password2 = Password::parse(Secret::new("password234".to_string())).unwrap();
         let result_invalid_cred = store.validate_user(&user.email, &password2).await;
         assert!(result_invalid_cred.is_err());
         assert_eq!(
@@ -107,7 +109,7 @@ mod tests {
             UserStoreError::InvalidCredentials
         );
 
-        let email2 = Email::parse("user2@a.com".to_string()).unwrap();
+        let email2 = Email::parse(Secret::new("user2@a.com".to_string())).unwrap();
         let result_not_found = store.validate_user(&email2, &password2).await;
         assert!(result_not_found.is_err());
         assert_eq!(result_not_found.unwrap_err(), UserStoreError::UserNotFound);

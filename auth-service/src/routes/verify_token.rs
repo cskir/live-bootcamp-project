@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use serde::{Deserialize, Serialize};
+use secrecy::Secret;
+use serde::Deserialize;
 
 use crate::{app_state::AppState, domain::AuthAPIError, utils::auth::validate_token};
 
@@ -14,7 +15,7 @@ pub async fn verify_token(
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct VerifyTokenRequest {
-    pub token: String,
+    pub token: Secret<String>,
 }

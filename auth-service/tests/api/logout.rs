@@ -1,5 +1,6 @@
 use auth_service::{utils::constants::JWT_COOKIE_NAME, ErrorResponse};
 use reqwest::Url;
+use secrecy::Secret;
 
 use crate::helpers::{get_random_email, ExtractResponse, TestApp};
 
@@ -46,7 +47,7 @@ async fn should_return_200_if_valid_jwt_cookie() {
         .banned_token_store
         .write()
         .await
-        .contains_token(token)
+        .contains_token(&Secret::new(token.to_owned()))
         .await
         .expect("Failed to check if token is banned");
 

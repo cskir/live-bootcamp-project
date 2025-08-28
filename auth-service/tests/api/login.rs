@@ -1,5 +1,6 @@
 use crate::helpers::{get_random_email, ExtractResponse, TestApp};
 use auth_service::{domain::Email, routes::TwoFactorAuthResponse, ErrorResponse};
+use secrecy::{ExposeSecret, Secret};
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fa_disabled() {
@@ -65,7 +66,7 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
 
     assert_eq!(json_body.message, "2FA required".to_owned());
 
-    let email = Email::parse(random_email).unwrap();
+    let email = Email::parse(Secret::new(random_email)).unwrap();
 
     let result = app.two_fa_code_store.read().await.get_code(&email).await;
 
@@ -73,7 +74,10 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
 
     let (login_attempt_id, _) = result.unwrap();
 
-    assert_eq!(json_body.login_attempt_id, login_attempt_id.as_ref());
+    assert_eq!(
+        json_body.login_attempt_id,
+        login_attempt_id.as_ref().expose_secret().to_string()
+    );
 
     app.clean_up().await;
 }

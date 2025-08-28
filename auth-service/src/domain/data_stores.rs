@@ -3,6 +3,7 @@ use crate::domain::{Email, Password};
 use super::User;
 use color_eyre::eyre::{eyre, Context, Report, Result};
 use rand::Rng;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
@@ -41,8 +42,8 @@ impl PartialEq for UserStoreError {
 
 #[async_trait::async_trait]
 pub trait BannedTokenStore {
-    async fn add_token(&mut self, token: String) -> Result<(), BannedTokenStoreError>;
-    async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError>;
+    async fn add_token(&mut self, token: Secret<String>) -> Result<(), BannedTokenStoreError>;
+    async fn contains_token(&self, token: &Secret<String>) -> Result<bool, BannedTokenStoreError>;
 }
 
 #[derive(Debug, Error)]
@@ -84,12 +85,15 @@ impl PartialEq for TwoFACodeStoreError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TwoFACode(String);
+#[derive(Debug, Clone, Deserialize)]
+pub struct TwoFACode(Secret<String>);
 
 impl TwoFACode {
-    pub fn parse(code: String) -> Result<Self> {
-        let code_as_u32 = code.parse::<u32>().wrap_err("Invalid 2FA code")?;
+    pub fn parse(code: Secret<String>) -> Result<Self> {
+        let code_as_u32 = code
+            .expose_secret()
+            .parse::<u32>()
+            .wrap_err("Invalid 2FA code")?;
 
         if (100_000..=999_999).contains(&code_as_u32) {
             Ok(Self(code))
@@ -99,66 +103,98 @@ impl TwoFACode {
     }
 }
 
-impl Default for TwoFACode {
-    fn default() -> Self {
-        let mut rng = rand::thread_rng();
-        Self(rng.gen_range(100000..999999).to_string())
+impl PartialEq for TwoFACode {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
     }
 }
 
-impl AsRef<str> for TwoFACode {
-    fn as_ref(&self) -> &str {
+impl Serialize for TwoFACode {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.0.expose_secret())
+    }
+}
+
+impl Default for TwoFACode {
+    fn default() -> Self {
+        let mut rng = rand::thread_rng();
+        Self(Secret::new(rng.gen_range(100000..999999).to_string()))
+    }
+}
+
+impl AsRef<Secret<String>> for TwoFACode {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LoginAttemptId(pub String);
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoginAttemptId(Secret<String>);
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self> {
-        let parse_id = Uuid::parse_str(&id).wrap_err("Invalid login attempt Id")?;
-        Ok(Self(parse_id.to_string()))
+    pub fn parse(id: Secret<String>) -> Result<Self> {
+        let parse_id = Uuid::parse_str(id.expose_secret()).wrap_err("Invalid login attempt Id")?;
+        Ok(Self(Secret::new(parse_id.to_string())))
     }
 }
 
 impl Default for LoginAttemptId {
     fn default() -> Self {
-        Self(Uuid::new_v4().to_string())
+        Self(Secret::new(Uuid::new_v4().to_string()))
     }
 }
 
-impl AsRef<str> for LoginAttemptId {
-    fn as_ref(&self) -> &str {
+impl PartialEq for LoginAttemptId {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl Serialize for LoginAttemptId {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.0.expose_secret())
+    }
+}
+
+impl AsRef<Secret<String>> for LoginAttemptId {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     use super::TwoFACode;
 
     #[test]
     fn empty_code_is_rejected() {
-        let code = "".to_string();
+        let code = Secret::new("".to_string());
         assert!(TwoFACode::parse(code).is_err());
     }
 
     #[test]
     fn short_code_is_rejected() {
-        let code = "12345".to_string();
+        let code = Secret::new("12345".to_string());
         assert!(TwoFACode::parse(code).is_err());
     }
 
     #[test]
     fn long_code_is_rejected() {
-        let code = "1234567".to_string();
+        let code = Secret::new("1234567".to_string());
         assert!(TwoFACode::parse(code).is_err());
     }
 
     #[test]
     fn not_numeric_code_is_rejected() {
-        let code = "12345a".to_string();
+        let code = Secret::new("12345a".to_string());
         assert!(TwoFACode::parse(code).is_err());
     }
 
@@ -166,19 +202,19 @@ mod tests {
 
     #[test]
     fn empty_id_is_rejected() {
-        let id = "".to_string();
+        let id = Secret::new("".to_string());
         assert!(LoginAttemptId::parse(id).is_err());
     }
 
     #[test]
     fn invalid_uuid_is_rejected() {
-        let id = "invalid-uuid".to_string();
+        let id = Secret::new("invalid-uuid".to_string());
         assert!(LoginAttemptId::parse(id).is_err());
     }
 
     #[test]
     fn valid_uuid_is_accepted() {
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = Secret::new(uuid::Uuid::new_v4().to_string());
         assert!(LoginAttemptId::parse(id).is_ok());
     }
 }

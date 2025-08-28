@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::eyre::{Context, Result};
 use redis::{Commands, Connection};
+use secrecy::{ExposeSecret, Secret};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -22,8 +23,8 @@ impl RedisBannedTokenStore {
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
     #[tracing::instrument(name = "Add token", skip_all)]
-    async fn add_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
-        let token_key = get_key(token.as_str());
+    async fn add_token(&mut self, token: Secret<String>) -> Result<(), BannedTokenStoreError> {
+        let token_key = get_key(&token);
 
         let value = true;
 
@@ -36,7 +37,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
             .conn
             .write()
             .await
-            .set_ex(&token_key, value, ttl)
+            .set_ex(token_key.expose_secret(), value, ttl)
             .wrap_err("failed to set banned token in Redis")
             .map_err(BannedTokenStoreError::UnexpectedError)?;
 
@@ -44,12 +45,12 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 
     #[tracing::instrument(name = "Contains token", skip_all)]
-    async fn contains_token(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+    async fn contains_token(&self, token: &Secret<String>) -> Result<bool, BannedTokenStoreError> {
         let result: bool = self
             .conn
             .write()
             .await
-            .exists(get_key(&token))
+            .exists(get_key(token).expose_secret())
             .wrap_err("failed to check if token exists in Redis")
             .map_err(BannedTokenStoreError::UnexpectedError)?;
 
@@ -60,6 +61,10 @@ impl BannedTokenStore for RedisBannedTokenStore {
 // We are using a key prefix to prevent collisions and organize data!
 const BANNED_TOKEN_KEY_PREFIX: &str = "banned_token:";
 
-fn get_key(token: &str) -> String {
-    format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token)
+fn get_key(token: &Secret<String>) -> Secret<String> {
+    Secret::new(format!(
+        "{}{}",
+        BANNED_TOKEN_KEY_PREFIX,
+        token.expose_secret()
+    ))
 }

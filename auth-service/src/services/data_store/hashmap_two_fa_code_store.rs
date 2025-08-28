@@ -39,13 +39,15 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
 }
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     use super::*;
     use crate::domain::{Email, LoginAttemptId, TwoFACode};
 
     #[tokio::test]
     async fn test_add_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("user1@a.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("user1@a.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
         let result = store
@@ -69,7 +71,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("user1@a.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("user1@a.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
         let result = store
@@ -95,7 +97,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_code_not_found() {
         let store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("user1@a.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("user1@a.com".to_string())).unwrap();
 
         let result = store.get_code(&email).await;
 
@@ -108,7 +110,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("user1@a.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("user1@a.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
         let result = store
@@ -127,7 +129,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code_not_found() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("user1@a.com".to_string()).unwrap();
+        let email = Email::parse(Secret::new("user1@a.com".to_string())).unwrap();
 
         let result = store.remove_code(&email).await;
 
